@@ -168,19 +168,22 @@ private:
     project _proj;
     std::size_t _applied;
     std::vector<project_commit> _commits;
+
+    template <typename archive_t>
+    friend void serialize(archive_t& archive, project_container& value);
 };
 
 /// @brief Imports a project container from an input stream
 /// @param stream Input stream to import from
 /// @param container Project container to import to
 /// @param ver Detected version of the project container
-void import_project_container(std::istream& stream, project_container& container, version& ver);
+void import_container(std::istream& stream, project_container& container, version& ver, const bool as_json = false);
 
 /// @brief Exports a project container to an output stream
 /// @param stream Output stream to export to
 /// @param container Project container to export from
 /// @param ver Choosen dawxchange version of the project container
-void export_project_container(std::ostream& stream, const project_container& container, const version& ver);
+void export_container(std::ostream& stream, const project_container& container, const version& ver, const bool as_json = false);
 
 /// @brief Represents metadata about a container commit
 struct project_commit_info {
@@ -201,7 +204,7 @@ struct project_info {
     std::size_t midi_sequencers_count;
     std::size_t mixer_tracks_count;
     std::vector<project_commit_info> commits;
-    std::size_t commits_applied; 
+    std::size_t commits_applied;
 };
 
 /// @brief Scans a container for metadata

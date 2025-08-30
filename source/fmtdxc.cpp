@@ -4,6 +4,14 @@
 #include <fmtdxc/fmtdxc.hpp>
 #include <utility>
 
+#include <cereal/archives/binary.hpp>
+#include <cereal/archives/json.hpp>
+#include <cereal/cereal.hpp>
+#include <cereal/types/map.hpp>
+#include <cereal/types/optional.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/vector.hpp>
+
 namespace fmtdxc {
 
 inline bool differs(double a, double b, double eps = 1e-9)
@@ -475,9 +483,245 @@ void project_container::redo()
     apply(_proj, c.forward);
     ++_applied;
 }
+}
 
-void import_project_container(std::istream&, project_container&, version&) { }
+// SERIALIZATION
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+namespace std {
+namespace filesystem {
 
-void export_project_container(std::ostream&, const project_container&, const version&) { }
+    template <typename archive_t>
+    void serialize(archive_t& archive, path& p)
+    {
+        if constexpr (archive_t::is_saving::value) {
+            archive(cereal::make_nvp("automated", p.string()));
+        } else if constexpr (archive_t::is_loading::value) {
+            std::string _str;
+            archive(cereal::make_nvp("path", _str));
+            p = std::filesystem::path(_str);
+        }
+    }
 
+}
+}
+
+// // Forward decls
+// template <class Archive> void serialize_impl(Archive&, basic_project<false>::mixer_track&);
+// template <class Archive> void serialize_impl(Archive&, basic_project<true>::mixer_track&);
+
+// // Generic dispatcher: matches anything, then forwards
+// template <class Archive, class T>
+// void serialize(Archive& ar, T& v) {
+//     serialize_impl(ar, v);
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::audio_effect& value)
+// {
+//     archive(cereal::make_nvp("name", value.name));
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_instrument& value)
+// {
+//     archive(cereal::make_nvp("name", value.name));
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::audio_clip& value)
+// {
+//     archive(cereal::make_nvp("name", value.name));
+//     archive(cereal::make_nvp("start_tick", value.start_tick));
+//     archive(cereal::make_nvp("length_ticks", value.length_ticks));
+//     //
+//     archive(cereal::make_nvp("file_start_frame", value.file_start_frame));
+//     archive(cereal::make_nvp("db", value.db));
+//     archive(cereal::make_nvp("is_loop", value.is_loop));
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_mpe& value)
+// {
+//     archive(cereal::make_nvp("channel", value.channel));
+//     archive(cereal::make_nvp("pressure", value.pressure));
+//     archive(cereal::make_nvp("slide", value.slide));
+//     archive(cereal::make_nvp("timbre", value.timbre));
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_note& value)
+// {
+//     archive(cereal::make_nvp("start_tick", value.start_tick));
+//     archive(cereal::make_nvp("length_ticks", value.length_ticks));
+//     archive(cereal::make_nvp("pitch", value.pitch));
+//     archive(cereal::make_nvp("velocity", value.velocity));
+//     archive(cereal::make_nvp("mpe", value.mpe));
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_clip& value)
+// {
+//     archive(cereal::make_nvp("name", value.name));
+//     archive(cereal::make_nvp("start_tick", value.start_tick));
+//     archive(cereal::make_nvp("length_ticks", value.length_ticks));
+//     archive(cereal::make_nvp("notes", value.notes));
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::audio_sequencer& value)
+// {
+//     archive(cereal::make_nvp("name", value.name));
+//     archive(cereal::make_nvp("clips", value.clips));
+//     archive(cereal::make_nvp("output", value.output));
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_sequencer& value)
+// {
+//     archive(cereal::make_nvp("name", value.name));
+//     archive(cereal::make_nvp("instrument", value.instrument));
+//     archive(cereal::make_nvp("clips", value.clips));
+//     archive(cereal::make_nvp("output", value.output));
+// }
+
+// template <typename archive_t, bool sparse_t>
+// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::mixer_routing& value)
+// {
+//     archive(cereal::make_nvp("db", value.db));
+//     archive(cereal::make_nvp("output", value.output));
+// }
+
+#define FMX_SERIALIZE_NESTED(Nested, BODY)                              \
+    template <class archive_t>                                          \
+    void serialize(archive_t& archive, project::Nested& value) { BODY } \
+    template <class archive_t>                                          \
+    void serialize(archive_t& archive, sparse_project::Nested& value) { BODY }
+
+namespace fmtdxc {
+
+FMX_SERIALIZE_NESTED(audio_effect, {
+    archive(cereal::make_nvp("name", value.name));
+});
+
+FMX_SERIALIZE_NESTED(midi_instrument, {
+    archive(cereal::make_nvp("name", value.name));
+});
+
+FMX_SERIALIZE_NESTED(audio_clip, {
+    archive(cereal::make_nvp("name", value.name));
+    archive(cereal::make_nvp("start_tick", value.start_tick));
+    archive(cereal::make_nvp("length_ticks", value.length_ticks));
+    // file
+    archive(cereal::make_nvp("file_start_frame", value.file_start_frame));
+    archive(cereal::make_nvp("db", value.db));
+    archive(cereal::make_nvp("is_loop", value.is_loop));
+});
+
+FMX_SERIALIZE_NESTED(midi_mpe, {
+    archive(cereal::make_nvp("channel", value.channel));
+    archive(cereal::make_nvp("pressure", value.pressure));
+    archive(cereal::make_nvp("slide", value.slide));
+    archive(cereal::make_nvp("timbre", value.timbre));
+});
+
+FMX_SERIALIZE_NESTED(midi_note, {
+    archive(cereal::make_nvp("start_tick", value.start_tick));
+    archive(cereal::make_nvp("length_ticks", value.length_ticks));
+    archive(cereal::make_nvp("pitch", value.pitch));
+    archive(cereal::make_nvp("velocity", value.velocity));
+    archive(cereal::make_nvp("mpe", value.mpe));
+});
+
+FMX_SERIALIZE_NESTED(midi_clip, {
+    archive(cereal::make_nvp("name", value.name));
+    archive(cereal::make_nvp("start_tick", value.start_tick));
+    archive(cereal::make_nvp("length_ticks", value.length_ticks));
+    archive(cereal::make_nvp("notes", value.notes));
+});
+
+FMX_SERIALIZE_NESTED(audio_sequencer, {
+    archive(cereal::make_nvp("name", value.name));
+    archive(cereal::make_nvp("instrument", value.instrument));
+    archive(cereal::make_nvp("clips", value.clips));
+    archive(cereal::make_nvp("output", value.output));
+});
+
+FMX_SERIALIZE_NESTED(mixer_routing, {
+    archive(cereal::make_nvp("db", value.db));
+    archive(cereal::make_nvp("output", value.output));
+});
+
+FMX_SERIALIZE_NESTED(mixer_track, {
+    archive(cereal::make_nvp("name", value.name));
+    archive(cereal::make_nvp("db", value.db));
+    archive(cereal::make_nvp("pan", value.pan));
+    archive(cereal::make_nvp("effects", value.effects));
+    archive(cereal::make_nvp("routings", value.routings));
+});
+
+template <typename archive_t, bool sparse_t>
+void serialize(archive_t& archive, basic_project<sparse_t>& value)
+{
+    archive(cereal::make_nvp("name", value.name));
+    archive(cereal::make_nvp("ppq", value.ppq));
+    // archive(cereal::make_nvp("audio_sequencers", value.audio_sequencers));
+    // archive(cereal::make_nvp("midi_sequencers", value.midi_sequencers));
+    archive(cereal::make_nvp("mixer_tracks", value.mixer_tracks));
+    archive(cereal::make_nvp("master_track_id", value.master_track_id));
+}
+
+template <typename archive_t>
+void serialize(archive_t& archive, project_commit& value)
+{
+    archive(cereal::make_nvp("message", value.message));
+    archive(cereal::make_nvp("timestamp", value.timestamp));
+    archive(cereal::make_nvp("forward", value.forward));
+    archive(cereal::make_nvp("backward", value.backward));
+}
+
+template <typename archive_t>
+void serialize(archive_t& archive, project_container& value)
+{
+    archive(cereal::make_nvp("project", value._proj));
+    archive(cereal::make_nvp("applied", value._applied));
+    archive(cereal::make_nvp("commits", value._commits));
+}
+
+void import_container(std::istream& stream, project_container& container, version& ver, const bool as_json)
+{
+    if (as_json) {
+        cereal::JSONInputArchive _archive(stream);
+        _archive(cereal::make_nvp("dawxchange json container", container));
+    } else {
+        cereal::BinaryInputArchive _archive(stream);
+        _archive(cereal::make_nvp("dawxchange binary container", container));
+    }
+}
+
+void export_container(std::ostream& stream, const project_container& container, const version& ver, const bool as_json)
+{
+    if (as_json) {
+        cereal::JSONOutputArchive _archive(stream);
+        _archive(cereal::make_nvp("dawxchange json container", container));
+    } else {
+        cereal::BinaryOutputArchive _archive(stream);
+        _archive(cereal::make_nvp("dawxchange binary container", container));
+    }
+}
 }
