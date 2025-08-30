@@ -9,11 +9,14 @@
 
 namespace fmtdxc {
 
-/// @brief
+/// @brief Represents dawxchange version with an enum that will not collide with versions from other DAWs.
+/// dawxchange id is defined as 99. Currently in alpha
 enum struct version : unsigned int {
-    alpha
+    alpha = 90000
 };
 
+/// @brief Abstract class for dawxchange projects.
+/// @tparam sparse_t allows for replacing T fields with std::optional<T> for merge operations
 template <bool sparse_t = false>
 struct basic_project {
 
@@ -36,11 +39,16 @@ struct basic_project {
         // placeholder
     };
 
+    struct collected_audio_file {
+        value<std::vector<char>> data;
+        value<std::filesystem::path> collected_relative_path;
+    };
+
     struct audio_clip {
         value<std::string> name;
         value<std::uint64_t> start_tick;
         value<std::uint64_t> length_ticks;
-        value<std::filesystem::path> file;
+        value<std::filesystem::path> file; // replace w std::variant<std::filesystem::path, audio_file>
         value<std::uint64_t> file_start_frame;
         value<double> db;
         value<bool> is_loop;
@@ -104,25 +112,30 @@ struct basic_project {
     id<mixer_track> master_track_id;
 };
 
-/// @brief
+/// @brief Represents a dawxchange project
 using project = basic_project<false>;
 
-/// @brief
+/// @brief Represents a sparse dawxchange project for merge operations
 using sparse_project = basic_project<true>;
 
-/// @brief
-/// @param base
-/// @param other
-/// @return
-[[nodiscard]] sparse_project diff(const project& base, const project& other);
+/// @brief Create a diff from dawxchange projects
+/// @param base Dawxchange project to compare from
+/// @param other Dawxchange project to compare to
+/// @param result Sparse dawxchange project containing diffed fields only
+void diff(const project& base, const project& other, sparse_project& result);
 
-/// @brief
-/// @param base
-/// @param diffs
-/// @return
-[[nodiscard]] project apply(const project& base, const sparse_project& diffs);
+/// @brief Applies changes from a sparse dawxchange project to a dawxhange project
+/// @param base Dawxchange project to apply to
+/// @param diffs Sparse dawxchange project to apply from
+/// @param result Dawxchange project with applied changes
+void apply(const project& base, const sparse_project& diffs, project& result);
 
-/// @brief
+/// @brief Applies changes inplace from a sparse dawxchange project to a dawxhange project
+/// @param base Dawxchange project to inplace apply to
+/// @param diffs Sparse dawxchange project to apply from
+void apply(project& base, const sparse_project& diffs);
+
+/// @brief Represents changes to a dawxchange project as optimized data and metadata
 struct project_commit {
     std::string message;
     std::time_t timestamp;
@@ -130,7 +143,8 @@ struct project_commit {
     sparse_project backward;
 };
 
-/// @brief
+/// @brief Represents a feature rich dawxchange project that saves changes history as linear commits.
+/// This is the format to use from daws
 struct project_container {
     project_container();
     project_container(const project& base);
@@ -156,25 +170,25 @@ private:
     std::vector<project_commit> _commits;
 };
 
-/// @brief
-/// @param stream
-/// @param proj
-/// @param ver
-void import_project_container(std::istream& stream, project_container& proj, version& ver);
+/// @brief Imports a project container from an input stream
+/// @param stream Input stream to import from
+/// @param container Project container to import to
+/// @param ver Detected version of the project container
+void import_project_container(std::istream& stream, project_container& container, version& ver);
 
-/// @brief
-/// @param stream
-/// @param proj
-/// @param ver
-void export_project_container(std::ostream& stream, const project_container& proj, const version& ver);
+/// @brief Exports a project container to an output stream
+/// @param stream Output stream to export to
+/// @param container Project container to export from
+/// @param ver Choosen dawxchange version of the project container
+void export_project_container(std::ostream& stream, const project_container& container, const version& ver);
 
-/// @brief 
+/// @brief Represents metadata about a container commit
 struct project_commit_info {
     std::string message;
     std::time_t timestamp;
 };
 
-/// @brief 
+/// @brief Represents metadata about a container
 struct project_info {
     std::filesystem::path absolute;
     std::string name;
@@ -190,9 +204,14 @@ struct project_info {
     std::size_t commits_applied; 
 };
 
-/// @brief
-/// @param root
-/// @return
-[[nodiscard]] project_info scan_project(const std::filesystem::path& project_path);
+/// @brief Scans a container for metadata
+/// @param container Container to scan from
+/// @param info Resulting container metadata
+void scan_project(const project_container& container, project_info& info);
+
+/// @brief Scans a container path for metadata
+/// @param container_path Container path to scan from
+/// @param info Resulting container metadata
+void scan_project(const std::filesystem::path& container_path, project_info& info);
 
 }

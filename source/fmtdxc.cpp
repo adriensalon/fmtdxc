@@ -6,11 +6,21 @@
 
 namespace fmtdxc {
 
-// ---------- helpers ----------
-inline bool differs(double a, double b, double eps = 1e-9) { return std::fabs(a - b) > eps; }
-inline bool differs(float a, float b, float eps = 1e-6f) { return std::fabs(a - b) > eps; }
+inline bool differs(double a, double b, double eps = 1e-9)
+{
+    return std::fabs(a - b) > eps;
+}
+
+inline bool differs(float a, float b, float eps = 1e-6f)
+{
+    return std::fabs(a - b) > eps;
+}
+
 template <typename T>
-inline bool differs(const T& a, const T& b) { return a != b; }
+inline bool differs(const T& a, const T& b)
+{
+    return a != b;
+}
 
 template <typename T>
 static std::optional<T> diff_value(const T& a, const T& b)
@@ -25,7 +35,6 @@ static void set_if(T& dst, const std::optional<T>& maybe)
         dst = *maybe;
 }
 
-// ---------- is_empty() for sparse nodes ----------
 static bool is_empty_audio_clip(const sparse_project::audio_clip& x)
 {
     return !x.name && !x.start_tick && !x.length_ticks && !x.file && !x.file_start_frame && !x.db && !x.is_loop;
@@ -67,7 +76,6 @@ static bool is_empty(const sparse_project& x)
     return !x.name && !x.ppq && !x.master_track_id && x.audio_sequencers.empty() && x.midi_sequencers.empty() && x.mixer_tracks.empty();
 }
 
-// ---------- full_patch(...) for "adds" ----------
 static sparse_project::audio_clip full_patch_audio_clip(const project::audio_clip& s)
 {
     sparse_project::audio_clip p;
@@ -145,7 +153,6 @@ static sparse_project::mixer_track full_patch_mixer_track(const project::mixer_t
     return p;
 }
 
-// ---------- entity-level diffs ----------
 static sparse_project::audio_clip diff_audio_clip(const project::audio_clip& a, const project::audio_clip& b)
 {
     sparse_project::audio_clip out;
@@ -261,10 +268,8 @@ static sparse_project::mixer_track diff_mixer_track(const project::mixer_track& 
     return out;
 }
 
-// ---------- public diff ----------
-sparse_project diff(const project& a, const project& b)
+void diff(const project& a, const project& b, sparse_project& out)
 {
-    sparse_project out;
     out.name = diff_value(a.name, b.name);
     out.ppq = diff_value(a.ppq, b.ppq);
     out.master_track_id = diff_value(a.master_track_id, b.master_track_id);
@@ -281,11 +286,8 @@ sparse_project diff(const project& a, const project& b)
         diff_mixer_track,
         full_patch_mixer_track,
         is_empty_mixer_track);
-
-    return out;
 }
 
-// ---------- apply: entity helpers ----------
 static void apply_audio_clip(project::audio_clip& dst, const sparse_project::audio_clip& p)
 {
     set_if(dst.name, p.name);
@@ -356,10 +358,9 @@ static void apply_mixer_track(project::mixer_track& dst, const sparse_project::m
     // effects/routings once modeled
 }
 
-// ---------- public apply ----------
-project apply(const project& base, const sparse_project& diffs)
+void apply(const project& base, const sparse_project& diffs, project& out)
 {
-    project out = base;
+    out = base;
 
     set_if(out.name, diffs.name);
     set_if(out.ppq, diffs.ppq);
@@ -377,8 +378,14 @@ project apply(const project& base, const sparse_project& diffs)
         auto& mt = out.mixer_tracks[mtid];
         apply_mixer_track(mt, mtp);
     }
+}
 
-    return out;
+void apply(project& base, const sparse_project& diffs)
+{
+    project _out;
+    apply(base, diffs, _out);
+    base = _out;
+    // fugly!
 }
 
 // ---------- project_container methods ----------
@@ -427,8 +434,8 @@ void project_container::commit(const std::string& message, const project& next)
     project_commit c;
     c.message = message;
     c.timestamp = std::time(nullptr);
-    c.forward = diff(_proj, next);
-    c.backward = diff(next, _proj);
+    diff(_proj, next, c.forward);
+    diff(next, _proj, c.backward);
 
     // skip no-op commits
     if (is_empty(c.forward)) {
@@ -438,8 +445,9 @@ void project_container::commit(const std::string& message, const project& next)
 
 #ifndef NDEBUG
     {
-        auto after = apply(_proj, c.forward);
-        auto rewind = apply(after, c.backward);
+        project after, rewind;
+        apply(_proj, c.forward, after);
+        apply(after, c.backward, rewind);
         // optional sanity: if (rewind != _proj) { /*log*/ }
         (void)rewind;
     }
@@ -455,7 +463,7 @@ void project_container::undo()
     if (!can_undo())
         return;
     const auto& c = _commits[_applied - 1];
-    _proj = apply(_proj, c.backward);
+    apply(_proj, c.backward);
     --_applied;
 }
 
@@ -464,7 +472,7 @@ void project_container::redo()
     if (!can_redo())
         return;
     const auto& c = _commits[_applied];
-    _proj = apply(_proj, c.forward);
+    apply(_proj, c.forward);
     ++_applied;
 }
 
