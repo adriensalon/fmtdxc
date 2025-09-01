@@ -510,7 +510,7 @@ namespace filesystem {
     void serialize(archive_t& archive, path& p)
     {
         if constexpr (archive_t::is_saving::value) {
-            archive(cereal::make_nvp("automated", p.string()));
+            archive(cereal::make_nvp("path", p.string()));
         } else if constexpr (archive_t::is_loading::value) {
             std::string _str;
             archive(cereal::make_nvp("path", _str));
