@@ -1,8 +1,11 @@
 #include <fmtdxc/fmtdxc.hpp>
 
+#include <windows.h>
+
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
 #include <cereal/cereal.hpp>
+#include <cereal/types/chrono.hpp>
 #include <cereal/types/map.hpp>
 #include <cereal/types/optional.hpp>
 #include <cereal/types/string.hpp>
@@ -14,6 +17,29 @@
 #include <utility>
 
 namespace fmtdxc {
+
+namespace {
+    [[nodiscard]] static std::chrono::system_clock::time_point win32_filetime_to_time_point(const FILETIME& ft)
+    {
+        // FILETIME: 100ns ticks since 1601-01-01 UTC
+        ULARGE_INTEGER ull;
+        ull.LowPart = ft.dwLowDateTime;
+        ull.HighPart = ft.dwHighDateTime;
+
+        // Difference between 1601-01-01 and 1970-01-01 in 100ns units
+        static const unsigned long long EPOCH_DIFF = 116444736000000000ULL;
+
+        // Convert to 100ns intervals since Unix epoch
+        unsigned long long ticks = ull.QuadPart - EPOCH_DIFF;
+
+        // Now to chrono::system_clock::time_point
+        return std::chrono::system_clock::time_point {
+            std::chrono::duration_cast<std::chrono::system_clock::duration>(
+                std::chrono::nanoseconds(ticks * 100))
+        };
+    }
+
+}
 
 inline bool differs(double a, double b, double eps = 1e-9)
 {
@@ -442,7 +468,7 @@ void project_container::commit(const std::string& message, const project& next)
 
     project_commit c;
     c.message = message;
-    c.timestamp = std::time(nullptr);
+    c.timestamp = std::chrono::system_clock::now();
     diff(_proj, next, c.forward);
     diff(next, _proj, c.backward);
 
@@ -521,92 +547,6 @@ namespace filesystem {
 
 }
 }
-
-// // Forward decls
-// template <class Archive> void serialize_impl(Archive&, basic_project<false>::mixer_track&);
-// template <class Archive> void serialize_impl(Archive&, basic_project<true>::mixer_track&);
-
-// // Generic dispatcher: matches anything, then forwards
-// template <class Archive, class T>
-// void serialize(Archive& ar, T& v) {
-//     serialize_impl(ar, v);
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::audio_effect& value)
-// {
-//     archive(cereal::make_nvp("name", value.name));
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_instrument& value)
-// {
-//     archive(cereal::make_nvp("name", value.name));
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::audio_clip& value)
-// {
-//     archive(cereal::make_nvp("name", value.name));
-//     archive(cereal::make_nvp("start_tick", value.start_tick));
-//     archive(cereal::make_nvp("length_ticks", value.length_ticks));
-//     //
-//     archive(cereal::make_nvp("file_start_frame", value.file_start_frame));
-//     archive(cereal::make_nvp("db", value.db));
-//     archive(cereal::make_nvp("is_loop", value.is_loop));
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_mpe& value)
-// {
-//     archive(cereal::make_nvp("channel", value.channel));
-//     archive(cereal::make_nvp("pressure", value.pressure));
-//     archive(cereal::make_nvp("slide", value.slide));
-//     archive(cereal::make_nvp("timbre", value.timbre));
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_note& value)
-// {
-//     archive(cereal::make_nvp("start_tick", value.start_tick));
-//     archive(cereal::make_nvp("length_ticks", value.length_ticks));
-//     archive(cereal::make_nvp("pitch", value.pitch));
-//     archive(cereal::make_nvp("velocity", value.velocity));
-//     archive(cereal::make_nvp("mpe", value.mpe));
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_clip& value)
-// {
-//     archive(cereal::make_nvp("name", value.name));
-//     archive(cereal::make_nvp("start_tick", value.start_tick));
-//     archive(cereal::make_nvp("length_ticks", value.length_ticks));
-//     archive(cereal::make_nvp("notes", value.notes));
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::audio_sequencer& value)
-// {
-//     archive(cereal::make_nvp("name", value.name));
-//     archive(cereal::make_nvp("clips", value.clips));
-//     archive(cereal::make_nvp("output", value.output));
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::midi_sequencer& value)
-// {
-//     archive(cereal::make_nvp("name", value.name));
-//     archive(cereal::make_nvp("instrument", value.instrument));
-//     archive(cereal::make_nvp("clips", value.clips));
-//     archive(cereal::make_nvp("output", value.output));
-// }
-
-// template <typename archive_t, bool sparse_t>
-// void serialize_impl(archive_t& archive, typename basic_project<sparse_t>::mixer_routing& value)
-// {
-//     archive(cereal::make_nvp("db", value.db));
-//     archive(cereal::make_nvp("output", value.output));
-// }
 
 #define FMX_SERIALIZE_NESTED(Nested, BODY)                              \
     template <class archive_t>                                          \
@@ -728,7 +668,8 @@ void export_container(std::ostream& stream, const project_container& container, 
 
 void scan_project(const project_container& container, project_info& info)
 {
-    // TODO
+    info.commits = container._commits;
+    info.applied = container._applied;
 }
 
 void scan_project(const std::filesystem::path& container_path, project_info& info)
@@ -738,6 +679,15 @@ void scan_project(const std::filesystem::path& container_path, project_info& inf
     std::ifstream _container_stream(container_path, std::ios::binary);
     import_container(_container_stream, _container, _version);
     scan_project(_container, info);
+    
+#ifdef _WIN32
+    WIN32_FILE_ATTRIBUTE_DATA _file_attribute_data;
+    if (GetFileAttributesExW(container_path.c_str(), GetFileExInfoStandard, &_file_attribute_data)) {
+        info.created_on = win32_filetime_to_time_point(_file_attribute_data.ftCreationTime);
+        info.modified_on = win32_filetime_to_time_point(_file_attribute_data.ftLastWriteTime);
+    }
+
+#endif
 }
 
 }

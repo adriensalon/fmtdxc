@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <map>
@@ -138,7 +139,7 @@ void apply(project& base, const sparse_project& diffs);
 /// @brief Represents changes to a dawxchange project as optimized data and metadata
 struct project_commit {
     std::string message;
-    std::time_t timestamp;
+    std::chrono::time_point<std::chrono::system_clock> timestamp;
     sparse_project forward;
     sparse_project backward;
 };
@@ -187,26 +188,12 @@ void import_container(std::istream& stream, project_container& container, versio
 /// @param ver Choosen dawxchange version of the project container
 void export_container(std::ostream& stream, const project_container& container, const version& ver, const bool as_json = false);
 
-/// @brief Represents metadata about a container commit
-struct project_commit_info {
-    std::string message;
-    std::time_t timestamp;
-};
-
 /// @brief Represents metadata about a container
 struct project_info {
-    std::filesystem::path absolute;
-    std::string name;
-    std::time_t created;
-    std::time_t last_modified;
-    std::uint32_t ppq;
-    std::size_t audio_clips_count;
-    std::size_t midi_clips_count;
-    std::size_t audio_sequencers_count;
-    std::size_t midi_sequencers_count;
-    std::size_t mixer_tracks_count;
-    std::vector<project_commit_info> commits;
-    std::size_t commits_applied;
+    std::chrono::time_point<std::chrono::system_clock> created_on;
+    std::chrono::time_point<std::chrono::system_clock> modified_on;
+    std::vector<project_commit> commits;
+    std::size_t applied;
 };
 
 /// @brief Scans a container for metadata
