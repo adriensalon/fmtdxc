@@ -169,6 +169,7 @@ private:
     project _proj;
     std::size_t _applied;
     std::vector<project_commit> _commits;
+    friend void scan_project(const project_container& container, struct project_info& info);
 
     template <typename archive_t>
     friend void serialize(archive_t& archive, project_container& value);

@@ -1,8 +1,4 @@
-// fmtdxc_impl.cpp
-#include <cmath>
-#include <ctime>
 #include <fmtdxc/fmtdxc.hpp>
-#include <utility>
 
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
@@ -11,6 +7,11 @@
 #include <cereal/types/optional.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
+
+#include <cmath>
+#include <ctime>
+#include <fstream>
+#include <utility>
 
 namespace fmtdxc {
 
@@ -724,4 +725,19 @@ void export_container(std::ostream& stream, const project_container& container, 
         _archive(cereal::make_nvp("dawxchange binary container", container));
     }
 }
+
+void scan_project(const project_container& container, project_info& info)
+{
+    // TODO
+}
+
+void scan_project(const std::filesystem::path& container_path, project_info& info)
+{
+    version _version;
+    project_container _container;
+    std::ifstream _container_stream(container_path, std::ios::binary);
+    import_container(_container_stream, _container, _version);
+    scan_project(_container, info);
+}
+
 }
