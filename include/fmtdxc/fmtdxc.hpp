@@ -161,6 +161,7 @@ struct project_container {
     [[nodiscard]] const project& get_project() const;
     [[nodiscard]] const std::vector<project_commit>& get_commits() const;
     void commit(const std::string& message, const project& next);
+    void commit(const project_commit& next);
     void undo();
     void redo();
 
