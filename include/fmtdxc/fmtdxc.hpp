@@ -188,22 +188,4 @@ void import_container(std::istream& stream, project_container& container, versio
 /// @param ver Choosen dawxchange version of the project container
 void export_container(std::ostream& stream, const project_container& container, const version& ver, const bool as_json = false);
 
-/// @brief Represents metadata about a container
-struct project_info {
-    std::chrono::time_point<std::chrono::system_clock> created_on;
-    std::chrono::time_point<std::chrono::system_clock> modified_on;
-    std::vector<project_commit> commits;
-    std::size_t applied;
-};
-
-/// @brief Scans a container for metadata
-/// @param container Container to scan from
-/// @param info Resulting container metadata
-void scan_project(const project_container& container, project_info& info);
-
-/// @brief Scans a container path for metadata
-/// @param container_path Container path to scan from
-/// @param info Resulting container metadata
-void scan_project(const std::filesystem::path& container_path, project_info& info);
-
 }

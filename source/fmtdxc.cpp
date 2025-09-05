@@ -1,7 +1,5 @@
 #include <fmtdxc/fmtdxc.hpp>
 
-#include <windows.h>
-
 #include <cereal/archives/binary.hpp>
 #include <cereal/archives/json.hpp>
 #include <cereal/cereal.hpp>
@@ -13,33 +11,9 @@
 
 #include <cmath>
 #include <ctime>
-#include <fstream>
 #include <utility>
 
 namespace fmtdxc {
-
-namespace {
-    [[nodiscard]] static std::chrono::system_clock::time_point win32_filetime_to_time_point(const FILETIME& ft)
-    {
-        // FILETIME: 100ns ticks since 1601-01-01 UTC
-        ULARGE_INTEGER ull;
-        ull.LowPart = ft.dwLowDateTime;
-        ull.HighPart = ft.dwHighDateTime;
-
-        // Difference between 1601-01-01 and 1970-01-01 in 100ns units
-        static const unsigned long long EPOCH_DIFF = 116444736000000000ULL;
-
-        // Convert to 100ns intervals since Unix epoch
-        unsigned long long ticks = ull.QuadPart - EPOCH_DIFF;
-
-        // Now to chrono::system_clock::time_point
-        return std::chrono::system_clock::time_point {
-            std::chrono::duration_cast<std::chrono::system_clock::duration>(
-                std::chrono::nanoseconds(ticks * 100))
-        };
-    }
-
-}
 
 inline bool differs(double a, double b, double eps = 1e-9)
 {
@@ -664,30 +638,6 @@ void export_container(std::ostream& stream, const project_container& container, 
         cereal::BinaryOutputArchive _archive(stream);
         _archive(cereal::make_nvp("dawxchange binary container", container));
     }
-}
-
-void scan_project(const project_container& container, project_info& info)
-{
-    info.commits = container._commits;
-    info.applied = container._applied;
-}
-
-void scan_project(const std::filesystem::path& container_path, project_info& info)
-{
-    version _version;
-    project_container _container;
-    std::ifstream _container_stream(container_path, std::ios::binary);
-    import_container(_container_stream, _container, _version);
-    scan_project(_container, info);
-    
-#ifdef _WIN32
-    WIN32_FILE_ATTRIBUTE_DATA _file_attribute_data;
-    if (GetFileAttributesExW(container_path.c_str(), GetFileExInfoStandard, &_file_attribute_data)) {
-        info.created_on = win32_filetime_to_time_point(_file_attribute_data.ftCreationTime);
-        info.modified_on = win32_filetime_to_time_point(_file_attribute_data.ftLastWriteTime);
-    }
-
-#endif
 }
 
 }
