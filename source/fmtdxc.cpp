@@ -618,26 +618,16 @@ void serialize(archive_t& archive, project_container& value)
     archive(cereal::make_nvp("commits", value._commits));
 }
 
-void import_container(std::istream& stream, project_container& container, version& ver, const bool as_json)
+void import_container(std::istream& stream, project_container& container, version& ver)
 {
-    if (as_json) {
-        cereal::JSONInputArchive _archive(stream);
-        _archive(cereal::make_nvp("dawxchange json container", container));
-    } else {
-        cereal::BinaryInputArchive _archive(stream);
-        _archive(cereal::make_nvp("dawxchange binary container", container));
-    }
+    cereal::BinaryInputArchive _archive(stream);
+    _archive(cereal::make_nvp("dawxchange binary container", container));
 }
 
-void export_container(std::ostream& stream, const project_container& container, const version& ver, const bool as_json)
+void export_container(std::ostream& stream, const project_container& container, const version& ver)
 {
-    if (as_json) {
-        cereal::JSONOutputArchive _archive(stream);
-        _archive(cereal::make_nvp("dawxchange json container", container));
-    } else {
-        cereal::BinaryOutputArchive _archive(stream);
-        _archive(cereal::make_nvp("dawxchange binary container", container));
-    }
+    cereal::BinaryOutputArchive _archive(stream);
+    _archive(cereal::make_nvp("dawxchange json container", container));
 }
 
 }

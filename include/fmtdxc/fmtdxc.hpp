@@ -170,7 +170,6 @@ private:
     project _proj;
     std::size_t _applied;
     std::vector<project_commit> _commits;
-    friend void scan_project(const project_container& container, struct project_info& info);
 
     template <typename archive_t>
     friend void serialize(archive_t& archive, project_container& value);
@@ -180,12 +179,12 @@ private:
 /// @param stream Input stream to import from
 /// @param container Project container to import to
 /// @param ver Detected version of the project container
-void import_container(std::istream& stream, project_container& container, version& ver, const bool as_json = false);
+void import_container(std::istream& stream, project_container& container, version& ver);
 
 /// @brief Exports a project container to an output stream
 /// @param stream Output stream to export to
 /// @param container Project container to export from
 /// @param ver Choosen dawxchange version of the project container
-void export_container(std::ostream& stream, const project_container& container, const version& ver, const bool as_json = false);
+void export_container(std::ostream& stream, const project_container& container, const version& ver);
 
 }
